@@ -70,8 +70,13 @@ class AudioQueue:
         # Cache shape: {url: {"file": str, "music_duration": Optional[float]}}
         self.download_cache = {}
         self.search_cache: dict[str, dict] = {}
+        self.cookies_file = "www.youtube.com_cookies.txt"
         self._enforce_size_limit()
 
+        def _cookies_args(self):
+        if os.path.exists(self.cookies_file):
+            return ["--cookies", self.cookies_file]
+        return []
     def _is_cache_audio_path(self, path: Path) -> bool:
         if not path.is_file():
             return False
@@ -342,6 +347,7 @@ class AudioQueue:
         cmd = [dlp_cmd, "--no-playlist", "--dump-single-json", "--extractor-retries", str(self.extractor_retries)]
         if self.search_mode == "fast":
             cmd.extend(["--no-warnings", "--socket-timeout", str(max(3.0, self.search_timeout_seconds))])
+        cmd.extend(self._cookies_args())
         cmd.append(target)
         code, stdout, stderr = await self._run_command(*cmd)
         if code != 0:
@@ -431,6 +437,7 @@ class AudioQueue:
         ]
         if self.search_mode == "fast":
             cmd.extend(["--no-warnings", "--socket-timeout", str(max(3.0, self.search_timeout_seconds))])
+        cmd.extend(self._cookies_args())
         cmd.append(target)
         code, stdout, stderr = await self._run_command(*cmd)
         if code != 0:
@@ -470,6 +477,7 @@ class AudioQueue:
         ]
         if self.search_mode == "fast":
             cmd.extend(["--no-warnings", "--lazy-playlist", "--socket-timeout", str(max(3.0, self.search_timeout_seconds))])
+        cmd.extend(self._cookies_args())
         cmd.append(candidate)
         code, stdout, stderr = await self._run_command(*cmd)
         if code != 0:
@@ -601,6 +609,7 @@ class AudioQueue:
             str(self.extractor_retries),
             "-o",
             temp_output,
+            *self._cookies_args(),
             source_url,
         ]
         if self.search_mode == "fast":

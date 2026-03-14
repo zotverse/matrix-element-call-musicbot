@@ -1,7 +1,9 @@
 import asyncio
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 
+from aiohttp import web
 from bot import IntegratedBot
 from config import Config
 
@@ -16,7 +18,6 @@ class CleanLogNoiseFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         if not self._enable_matrixrtc_filter:
             return True
-
         message = record.getMessage()
         noisy_parts = (
             "[MatrixRTCSession",
@@ -33,10 +34,8 @@ class CleanLogNoiseFilter(logging.Filter):
 def setup_logging(config: Config):
     config.LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
-
     file_handler = RotatingFileHandler(
         filename=config.LOG_FILE,
         maxBytes=config.LOG_MAX_BYTES,
@@ -44,7 +43,6 @@ def setup_logging(config: Config):
         encoding="utf-8",
     )
     file_handler.setFormatter(formatter)
-
     clean_file_handler = None
     if config.CLEAN_LOG_ENABLED:
         config.CLEAN_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -56,7 +54,6 @@ def setup_logging(config: Config):
         )
         clean_file_handler.setFormatter(formatter)
         clean_file_handler.addFilter(CleanLogNoiseFilter(config.CLEAN_LOG_FILTER_MATRIXRTC_NOISE))
-
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     root.handlers.clear()
@@ -66,11 +63,24 @@ def setup_logging(config: Config):
         root.addHandler(clean_file_handler)
 
 
+async def run_health_server():
+    async def health(request):
+        return web.Response(text="OK")
+    app = web.Application()
+    app.router.add_get("/", health)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    logger.info(f"Health server running on port {port}")
+
+
 async def main():
     config = Config()
     setup_logging(config)
+    await run_health_server()
     bot = IntegratedBot(config)
-
     try:
         await bot.start()
     except KeyboardInterrupt:

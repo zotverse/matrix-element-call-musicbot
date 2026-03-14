@@ -2,3 +2,5 @@
 homeserver = "https://matrix.org"
 user_id = "@musictozay:matrix.org"
 access_token = "mat_IYK6tbjk4lcmXR9pkj7MajWMbinkH2_Wc60X1"
+[bot]
+auto_accept_invites = true
